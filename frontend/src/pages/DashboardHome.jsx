@@ -1,6 +1,7 @@
 import { ArrowDownRight, ArrowUpRight, BadgeIndianRupee, ReceiptText, Scale, Sparkles } from 'lucide-react';
 import { useApp } from '../AppContext';
 import { Panel, Pill, SectionHeader } from '../components/UI';
+import { getBudgetSignal } from '../lib/budget';
 
 export default function DashboardHome() {
   const { dashboard, recentTransactions, budgets, user, isLoading } = useApp();
@@ -71,14 +72,20 @@ export default function DashboardHome() {
                 <div>
                   <div className="flex items-center gap-3">
                     <h4 className="font-medium text-white">{transaction.title}</h4>
-                    <Pill tone={transaction.entry_type.includes('shared') ? 'yellow' : 'default'}>
+                    <Pill tone={transaction.entry_type.includes('shared') || transaction.entry_type.includes('repayment') ? 'yellow' : 'default'}>
                       {transaction.cat_name}
                     </Pill>
                   </div>
                   <p className="mt-2 text-sm text-slate-300">
-                    {transaction.counterpart
-                      ? `${transaction.entry_type === 'shared-paid' ? 'Shared with' : 'Paid by'} ${transaction.counterpart}`
-                      : 'Personal expense'}
+                    {transaction.entry_type === 'shared-paid' && transaction.counterpart
+                      ? `Shared with ${transaction.counterpart}`
+                      : transaction.entry_type === 'shared-owed' && transaction.counterpart
+                        ? `Paid by ${transaction.counterpart}`
+                        : transaction.entry_type === 'repayment-paid' && transaction.counterpart
+                          ? `Repayment sent to ${transaction.counterpart}`
+                          : transaction.entry_type === 'repayment-received' && transaction.counterpart
+                            ? `Repayment received from ${transaction.counterpart}`
+                            : 'Personal expense'}
                   </p>
                 </div>
 
@@ -103,11 +110,25 @@ export default function DashboardHome() {
           <div className="grid gap-3">
             {budgets.slice(0, 4).map((item) => (
               <div key={item.cat_id} className="rounded-3xl border border-white/10 bg-white/5 p-4">
+                {(() => {
+                  const spent = Number(item.total_spent);
+                  const budget = Number(item.budget_amount);
+                  const status = getBudgetSignal(spent, budget);
+
+                  return (
+                    <>
                 <div className="flex items-center justify-between">
                   <span className="font-medium text-white">{item.cat_name}</span>
-                  <span className="text-sm text-slate-300">{Number(item.percentage).toFixed(0)}%</span>
+                  <Pill tone={status.pill}>{status.percentage.toFixed(0)}%</Pill>
                 </div>
-                <p className="mt-1 text-sm text-slate-400">${Number(item.total_spent).toFixed(2)} of ${Number(item.budget_amount).toFixed(2)}</p>
+                <p className="mt-1 text-sm text-slate-400">${spent.toFixed(2)} of ${budget.toFixed(2)}</p>
+                <div className="mt-3 h-2.5 rounded-full bg-white/10">
+                  <div className={`h-2.5 rounded-full transition-all duration-500 ${status.bar}`} style={{ width: `${status.progressWidth}%` }} />
+                </div>
+                <p className={`mt-2 text-xs font-medium ${status.accent}`}>{status.label}</p>
+                    </>
+                  );
+                })()}
               </div>
             ))}
           </div>

@@ -2,13 +2,7 @@ import { TrendingDown, TrendingUp } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useApp } from '../AppContext';
 import { Panel, Pill, SectionHeader } from '../components/UI';
-
-function getBudgetTone(percentage) {
-  // MEDIUM FIX: Correct color thresholds per requirements: <60% green, 60-99% yellow, >=100% red
-  if (percentage < 60) return { bar: 'bg-emerald-300', pill: 'green', label: 'Healthy' };
-  if (percentage < 100) return { bar: 'bg-amber-300', pill: 'yellow', label: 'Watchlist' };
-  return { bar: 'bg-rose-400', pill: 'red', label: 'Over limit' };
-}
+import { getBudgetSignal } from '../lib/budget';
 
 export default function Budget() {
   const { budgets, categories, saveBudget } = useApp();
@@ -75,8 +69,7 @@ export default function Budget() {
         {budgets.map((item) => {
           const spent = Number(item.total_spent);
           const budget = Number(item.budget_amount);
-          const percentage = Math.min(Number(item.percentage), 100);
-          const status = getBudgetTone(percentage);
+          const status = getBudgetSignal(spent, budget);
           const delta = budget - spent;
 
           return (
@@ -95,13 +88,13 @@ export default function Budget() {
               </div>
 
               <div className="h-3 rounded-full bg-white/10">
-                <div className={`h-3 rounded-full transition-all duration-500 ${status.bar}`} style={{ width: `${percentage}%` }} />
+                <div className={`h-3 rounded-full transition-all duration-500 ${status.bar}`} style={{ width: `${status.progressWidth}%` }} />
               </div>
 
               <div className="mt-4 grid gap-3 sm:grid-cols-3">
                 <div className="rounded-2xl bg-white/5 p-3">
                   <p className="text-xs uppercase tracking-[0.22em] text-slate-500">Used</p>
-                  <p className="mt-2 text-lg font-semibold text-white">{percentage.toFixed(0)}%</p>
+                  <p className="mt-2 text-lg font-semibold text-white">{status.percentage.toFixed(0)}%</p>
                 </div>
                 <div className="rounded-2xl bg-white/5 p-3">
                   <p className="text-xs uppercase tracking-[0.22em] text-slate-500">Remaining</p>

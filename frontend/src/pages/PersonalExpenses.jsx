@@ -1,4 +1,4 @@
-import { PencilLine, Trash2 } from 'lucide-react';
+import { Download, PencilLine, Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useApp } from '../AppContext';
 import { Panel, SectionHeader } from '../components/UI';
@@ -6,7 +6,7 @@ import { Panel, SectionHeader } from '../components/UI';
 const initialFormWithNote = { title: '', amount: '', catId: '', date: '', modeId: '', note: '' };
 
 export default function PersonalExpenses() {
-  const { personalExpenses, categories, paymentModes, updateExpense, deleteExpense } = useApp();
+  const { personalExpenses, categories, paymentModes, updateExpense, deleteExpense, exportCsv } = useApp();
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(initialFormWithNote);
   const [filters, setFilters] = useState({ search: '', category: '' });
@@ -78,6 +78,10 @@ export default function PersonalExpenses() {
                 </option>
               ))}
             </select>
+            <button type="button" onClick={exportCsv} className="primary-button">
+              <Download className="h-4 w-4" />
+              Export to CSV
+            </button>
           </div>
         }
       />

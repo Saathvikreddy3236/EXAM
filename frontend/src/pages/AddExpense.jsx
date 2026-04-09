@@ -2,13 +2,17 @@ import { useMemo, useState } from 'react';
 import { useApp } from '../AppContext';
 import { Panel, Pill, SectionHeader } from '../components/UI';
 
+const requiredCategories = ['Food & Dining', 'Transport', 'Shopping', 'Entertainment', 'Health & Medical', 'Education', 'Utilities', 'Other'];
+const requiredPaymentModes = ['Cash', 'UPI', 'Credit Card', 'Debit Card', 'Net Banking'];
+
 export default function AddExpense() {
   const { categories, paymentModes, friends, addExpense, getLocalDateString } = useApp();
+  const today = getLocalDateString();
   const [form, setForm] = useState({
     title: '',
     amount: '',
     catId: '',
-    date: getLocalDateString(),
+    date: today,
     modeId: '',
     note: '',
     isShared: false,
@@ -22,6 +26,14 @@ export default function AddExpense() {
     () => friends.filter((friend) => form.selectedFriends.includes(friend.username)),
     [friends, form.selectedFriends]
   );
+  const categoryOptions = useMemo(
+    () => requiredCategories.map((name) => categories.find((category) => category.cat_name === name)).filter(Boolean),
+    [categories]
+  );
+  const paymentModeOptions = useMemo(
+    () => requiredPaymentModes.map((name) => paymentModes.find((mode) => mode.mode_name === name)).filter(Boolean),
+    [paymentModes]
+  );
 
   const toggleFriend = (username) => {
     setForm((current) => ({
@@ -34,6 +46,26 @@ export default function AddExpense() {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
+
+    if (form.title.trim().length > 80) {
+      setMessage('Title cannot exceed 80 characters.');
+      return;
+    }
+
+    if (!Number.isFinite(Number(form.amount)) || Number(form.amount) <= 0) {
+      setMessage('Amount must be greater than 0.');
+      return;
+    }
+
+    if (!/^\d+(\.\d{1,2})?$/.test(form.amount)) {
+      setMessage('Amount can have up to 2 decimal places only.');
+      return;
+    }
+
+    if (form.date > today) {
+      setMessage('Date cannot be in the future.');
+      return;
+    }
 
     const participants = form.selectedFriends.map((username) => ({
       username,
@@ -86,6 +118,7 @@ export default function AddExpense() {
               value={form.title}
               onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))}
               placeholder="Expense title"
+              maxLength={80}
               className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none"
               required
             />
@@ -93,7 +126,7 @@ export default function AddExpense() {
               value={form.amount}
               onChange={(event) => setForm((current) => ({ ...current, amount: event.target.value }))}
               type="number"
-              min="0"
+              min="0.01"
               step="0.01"
               placeholder="Amount"
               className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none"
@@ -106,7 +139,7 @@ export default function AddExpense() {
               required
             >
               <option value="">Category</option>
-              {categories.map((category) => (
+              {categoryOptions.map((category) => (
                 <option key={category.cat_id} value={category.cat_id}>
                   {category.cat_name}
                 </option>
@@ -119,7 +152,7 @@ export default function AddExpense() {
               required
             >
               <option value="">Payment mode</option>
-              {paymentModes.map((mode) => (
+              {paymentModeOptions.map((mode) => (
                 <option key={mode.mode_id} value={mode.mode_id}>
                   {mode.mode_name}
                 </option>
@@ -132,6 +165,7 @@ export default function AddExpense() {
               value={form.date}
               onChange={(event) => setForm((current) => ({ ...current, date: event.target.value }))}
               type="date"
+              max={today}
               className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none"
               required
             />
@@ -141,7 +175,7 @@ export default function AddExpense() {
                 onChange={(event) => setForm((current) => ({ ...current, isShared: event.target.checked }))}
                 type="checkbox"
               />
-              Shared expense
+              Split with others
             </label>
           </div>
 

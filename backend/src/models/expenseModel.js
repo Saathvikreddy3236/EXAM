@@ -179,6 +179,46 @@ export async function getRecentTransactions(username) {
         JOIN "CATEGORY" c ON c.cat_id = p.cat_id
         JOIN "PAYMENT_MODE" pm ON pm.mode_id = p.mode_id
         WHERE se.owed_username = $1
+
+        UNION ALL
+
+        SELECT
+          r.id AS ref_id,
+          p.id AS payment_id,
+          CONCAT(p.title, ' repayment') AS title,
+          r.date,
+          r.amount,
+          c.cat_name,
+          pm.mode_name,
+          'repayment-paid' AS entry_type,
+          se.paid_username AS counterpart,
+          r.amount AS user_share
+        FROM "REPAYMENTS" r
+        JOIN "SHARED_EXPENSE" se ON se.id = r.shared_expense_id
+        JOIN "PAYMENT" p ON p.id = se.payment_id
+        JOIN "CATEGORY" c ON c.cat_id = p.cat_id
+        JOIN "PAYMENT_MODE" pm ON pm.mode_id = p.mode_id
+        WHERE se.owed_username = $1
+
+        UNION ALL
+
+        SELECT
+          r.id AS ref_id,
+          p.id AS payment_id,
+          CONCAT(p.title, ' repayment') AS title,
+          r.date,
+          r.amount,
+          c.cat_name,
+          pm.mode_name,
+          'repayment-received' AS entry_type,
+          se.owed_username AS counterpart,
+          r.amount AS user_share
+        FROM "REPAYMENTS" r
+        JOIN "SHARED_EXPENSE" se ON se.id = r.shared_expense_id
+        JOIN "PAYMENT" p ON p.id = se.payment_id
+        JOIN "CATEGORY" c ON c.cat_id = p.cat_id
+        JOIN "PAYMENT_MODE" pm ON pm.mode_id = p.mode_id
+        WHERE se.paid_username = $1
       ) recent
       ORDER BY date DESC, payment_id DESC
       LIMIT 5`,

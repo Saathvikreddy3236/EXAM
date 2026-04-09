@@ -5,6 +5,8 @@ import { useApp } from '../AppContext';
 
 export default function Register() {
   const currencyOptions = ['INR', 'USD', 'EUR', 'GBP'];
+  const usernamePattern = '^[A-Za-z0-9]{5,15}$';
+  const passwordPattern = '^(?=.*[A-Z])(?=.*[^A-Za-z0-9]).{8,}$';
   const navigate = useNavigate();
   const { register } = useApp();
   const [form, setForm] = useState({
@@ -26,6 +28,16 @@ export default function Register() {
       return;
     }
 
+    if (!new RegExp(usernamePattern).test(form.username)) {
+      setError('Username must be 5-15 characters and contain only letters and numbers.');
+      return;
+    }
+
+    if (!new RegExp(passwordPattern).test(form.password)) {
+      setError('Password must be at least 8 characters with 1 uppercase letter and 1 special character.');
+      return;
+    }
+
     try {
       setSubmitting(true);
       setError('');
@@ -35,6 +47,7 @@ export default function Register() {
         email: form.email,
         currencyPreferred: form.currencyPreferred,
         password: form.password,
+        confirmPassword: form.confirmPassword,
       });
       navigate('/dashboard');
     } catch (requestError) {
@@ -63,10 +76,14 @@ export default function Register() {
                   type="text"
                   value={form.username}
                   onChange={(event) => setForm((current) => ({ ...current, username: event.target.value }))}
-                  placeholder="Choose a username"
+                  placeholder="5-15 letters or numbers"
+                  minLength={5}
+                  maxLength={15}
+                  pattern={usernamePattern}
                   required
                 />
               </div>
+              <p className="mt-2 text-xs text-slate-400">Use only letters and numbers, with no spaces or special characters.</p>
             </label>
 
             <label className="block">
@@ -125,9 +142,12 @@ export default function Register() {
                     value={form.password}
                     onChange={(event) => setForm((current) => ({ ...current, password: event.target.value }))}
                     placeholder="Create password"
+                    minLength={8}
+                    pattern={passwordPattern}
                     required
                   />
                 </div>
+                <p className="mt-2 text-xs text-slate-400">Minimum 8 characters, including 1 uppercase letter and 1 special character.</p>
               </label>
 
               <label className="block">

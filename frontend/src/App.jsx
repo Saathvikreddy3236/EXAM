@@ -30,11 +30,11 @@ function App() {
   return (
     <Routes>
       <Route path="/" element={<Landing />} />
-      <Route path="/login" element={<Login />} />
-      <Route path="/register" element={<Register />} />
+      <Route path="/login" element={isLoggedIn ? <Navigate to="/dashboard" replace /> : <Login />} />
+      <Route path="/register" element={isLoggedIn ? <Navigate to="/dashboard" replace /> : <Register />} />
       <Route
         path="/dashboard"
-        element={isLoggedIn ? <Dashboard /> : <Navigate to="/login" />}
+        element={isLoggedIn ? <Dashboard /> : <Navigate to="/login" replace />}
       >
         <Route index element={<DashboardHome />} />
         <Route path="add-expense" element={<AddExpense />} />

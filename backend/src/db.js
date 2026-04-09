@@ -71,18 +71,16 @@ export async function withTransaction(callback) {
 
 const categorySeeds = [
   "Food & Dining",
-  "Travel",
-  "Rent & Utilities",
+  "Transport",
   "Entertainment",
   "Shopping",
-  "Health",
-  "Groceries",
+  "Health & Medical",
   "Education",
-  "Bills",
+  "Utilities",
   "Other",
 ];
 
-const paymentModeSeeds = ["Cash", "Card", "UPI", "Bank Transfer", "Wallet"];
+const paymentModeSeeds = ["Cash", "UPI", "Credit Card", "Debit Card", "Net Banking"];
 
 export async function initDatabase() {
   const schemaPath = path.join(__dirname, "database", "schema.sql");

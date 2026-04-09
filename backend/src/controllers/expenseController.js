@@ -10,6 +10,14 @@ import {
 import { areFriends } from "../models/friendModel.js";
 import { findUserByUsername } from "../models/userModel.js";
 
+function hasMoreThanTwoDecimals(value) {
+  return !Number.isInteger(Number(value) * 100);
+}
+
+function getTodayString() {
+  return new Date().toLocaleDateString("en-CA");
+}
+
 function normalizeParticipants(currentUsername, amount, splitType, participants = []) {
   if (!Array.isArray(participants) || participants.length === 0) {
     throw new ApiError(400, "Shared expense participants are required.");
@@ -46,9 +54,11 @@ function normalizeParticipants(currentUsername, amount, splitType, participants 
     return normalized;
   }
 
-  // CRITICAL FIX: Correct equal split - divide by number of participants (not +1)
-  // If payer covers $300 for 3 friends, each friend owes $100, not $75
-  const share = Number((Number(amount) / participants.length).toFixed(2));
+  // Equal split includes the payer as one of the participants.
+  // Example: $500 split between creator + 1 friend => each share is $250.
+  // The creator's share is treated as already paid, so only the other users get owed entries.
+  const totalPeopleInSplit = participants.length + 1;
+  const share = Number((Number(amount) / totalPeopleInSplit).toFixed(2));
   return participants.map((participant) => ({
     username: participant.username,
     amount: share,
@@ -83,6 +93,22 @@ export async function addExpense(req, res) {
 
   if (!title || !amount || !catId || !date || !modeId) {
     throw new ApiError(400, "title, amount, catId, date, and modeId are required.");
+  }
+
+  if (String(title).trim().length > 80) {
+    throw new ApiError(400, "Expense title cannot exceed 80 characters.");
+  }
+
+  if (!Number.isFinite(Number(amount)) || Number(amount) <= 0) {
+    throw new ApiError(400, "Expense amount must be greater than zero.");
+  }
+
+  if (hasMoreThanTwoDecimals(amount)) {
+    throw new ApiError(400, "Expense amount can have at most 2 decimal places.");
+  }
+
+  if (date > getTodayString()) {
+    throw new ApiError(400, "Expense date cannot be in the future.");
   }
 
   if (String(note).length > 200) {

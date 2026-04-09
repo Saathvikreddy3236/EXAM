@@ -42,7 +42,7 @@ export async function addRepayment({
       `UPDATE "SHARED_EXPENSE"
        SET amount_repaid = $2, status = $3
        WHERE id = $1
-       RETURNING id, amount_owed, amount_repaid, status`,
+       RETURNING id, paid_username, owed_username, payment_id, amount_owed, amount_repaid, status`,
       [sharedExpenseId, updatedAmount, status]
     );
 

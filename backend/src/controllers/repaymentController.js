@@ -1,5 +1,7 @@
 import { ApiError } from "../utils/http.js";
 import { addRepayment } from "../models/repaymentModel.js";
+import { emitToUser } from "../socket.js";
+import { buildRealtimeRepaymentPayload } from "../services/realtimeService.js";
 
 export async function createRepayment(req, res) {
   const { sharedExpenseId, amount, date, note } = req.body;
@@ -33,6 +35,28 @@ export async function createRepayment(req, res) {
 
     if (!result) {
       throw new ApiError(404, "Shared expense not found.");
+    }
+
+    const payerUsername = result.sharedExpense.owed_username;
+    const receiverUsername = result.sharedExpense.paid_username;
+    const baseUpdate = {
+      sharedExpenseId: result.sharedExpense.id,
+      paymentId: result.sharedExpense.payment_id,
+      amountOwed: result.sharedExpense.amount_owed,
+      amountRepaid: result.sharedExpense.amount_repaid,
+      status: result.sharedExpense.status,
+      paidBy: receiverUsername,
+      owedBy: payerUsername,
+    };
+
+    const [payerPayload, receiverPayload] = await Promise.all([
+      buildRealtimeRepaymentPayload(payerUsername, baseUpdate),
+      buildRealtimeRepaymentPayload(receiverUsername, baseUpdate),
+    ]);
+
+    emitToUser(payerUsername, "repayment:updated", payerPayload);
+    if (receiverUsername !== payerUsername) {
+      emitToUser(receiverUsername, "repayment:updated", receiverPayload);
     }
 
     res.status(201).json(result);

@@ -1,5 +1,7 @@
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import api from "./lib/api";
+import { ToastViewport } from "./components/UI";
+import { io } from "socket.io-client";
 
 const TOKEN_KEY = "expense_tracker_token";
 
@@ -34,11 +36,47 @@ function getLocalDateString() {
   return new Date(now.getTime() - offsetMs).toISOString().slice(0, 10);
 }
 
+function extractErrorMessage(error, fallbackMessage) {
+  return error?.response?.data?.message || fallbackMessage;
+}
+
 export function AppProvider({ children }) {
   const [token, setToken] = useState(() => localStorage.getItem(TOKEN_KEY));
   const [state, setState] = useState(defaultState);
   const [isBootstrapping, setIsBootstrapping] = useState(Boolean(localStorage.getItem(TOKEN_KEY)));
   const [isLoading, setIsLoading] = useState(false);
+  const [toasts, setToasts] = useState([]);
+  const socketRef = useRef(null);
+
+  const dismissToast = (toastId) => {
+    setToasts((current) => current.filter((toast) => toast.id !== toastId));
+  };
+
+  const showToast = ({ type = "success", title, message = "" }) => {
+    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    setToasts((current) => [...current, { id, type, title, message }]);
+  };
+
+  const runAction = async (work, options) => {
+    try {
+      const result = await work();
+      if (options?.successTitle) {
+        showToast({
+          type: "success",
+          title: options.successTitle,
+          message: options.successMessage || "",
+        });
+      }
+      return result;
+    } catch (error) {
+      showToast({
+        type: "error",
+        title: options?.errorTitle || "Something went wrong",
+        message: extractErrorMessage(error, options?.errorMessage || "Please try again."),
+      });
+      throw error;
+    }
+  };
 
   const applyAuth = (authPayload) => {
     localStorage.setItem(TOKEN_KEY, authPayload.token);
@@ -49,10 +87,17 @@ export function AppProvider({ children }) {
     }));
   };
 
-  const logout = () => {
+  const logout = ({ silent = false } = {}) => {
     localStorage.removeItem(TOKEN_KEY);
     setToken(null);
     setState(defaultState);
+    if (!silent) {
+      showToast({
+        type: "success",
+        title: "Logged out",
+        message: "Your session has been closed.",
+      });
+    }
   };
 
   const refreshAppData = async () => {
@@ -113,80 +158,213 @@ export function AppProvider({ children }) {
 
   useEffect(() => {
     if (!token) {
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+        socketRef.current = null;
+      }
       setIsBootstrapping(false);
       return;
     }
 
     refreshAppData().catch(() => {
-      logout();
+      logout({ silent: true });
       setIsBootstrapping(false);
     });
   }, [token]);
 
+  useEffect(() => {
+    if (!token) {
+      return undefined;
+    }
+
+    const socket = io(api.defaults.baseURL, {
+      transports: ["websocket"],
+      auth: { token },
+    });
+
+    socket.on("repayment:updated", (payload) => {
+      setState((current) => ({
+        ...current,
+        dashboard: payload.dashboard,
+        sharedExpenses: payload.sharedExpenses,
+        recentTransactions: payload.recentTransactions,
+        owed: payload.owed,
+        receivable: payload.receivable,
+      }));
+    });
+
+    socketRef.current = socket;
+
+    return () => {
+      socket.disconnect();
+      if (socketRef.current === socket) {
+        socketRef.current = null;
+      }
+    };
+  }, [token]);
+
   const register = async (payload) => {
-    const response = await api.post("/auth/register", payload);
-    applyAuth(response.data);
-    await refreshAppData();
+    await runAction(async () => {
+      const response = await api.post("/auth/register", payload);
+      applyAuth(response.data);
+      await refreshAppData();
+    }, {
+      successTitle: "Account created",
+      successMessage: "Your profile is ready and you are now signed in.",
+      errorTitle: "Registration failed",
+      errorMessage: "We could not create your account.",
+    });
   };
 
   const login = async (payload) => {
-    const response = await api.post("/auth/login", payload);
-    applyAuth(response.data);
-    await refreshAppData();
+    await runAction(async () => {
+      const response = await api.post("/auth/login", payload);
+      applyAuth(response.data);
+      await refreshAppData();
+    }, {
+      successTitle: "Login successful",
+      successMessage: "Welcome back to Shared Wallet.",
+      errorTitle: "Login failed",
+      errorMessage: "We could not sign you in.",
+    });
   };
 
   const updateProfile = async (payload) => {
-    await api.put("/user/profile", payload);
-    await refreshAppData();
+    await runAction(async () => {
+      await api.put("/user/profile", payload);
+      await refreshAppData();
+    }, {
+      successTitle: "Profile updated",
+      successMessage: "Your details have been saved.",
+      errorTitle: "Profile update failed",
+      errorMessage: "We could not update your profile.",
+    });
   };
 
   const sendFriendRequest = async (username) => {
-    await api.post("/friends/add", { username });
-    await refreshAppData();
+    await runAction(async () => {
+      await api.post("/friends/add", { username });
+      await refreshAppData();
+    }, {
+      successTitle: "Friend request sent",
+      successMessage: `Your request to @${username} is on the way.`,
+      errorTitle: "Request failed",
+      errorMessage: "We could not send the friend request.",
+    });
   };
 
   const acceptFriendRequest = async (requestId) => {
-    await api.post("/friends/accept", { requestId });
-    await refreshAppData();
+    await runAction(async () => {
+      await api.post("/friends/accept", { requestId });
+      await refreshAppData();
+    }, {
+      successTitle: "Friend request accepted",
+      successMessage: "Your friends list has been updated.",
+      errorTitle: "Accept failed",
+      errorMessage: "We could not accept that friend request.",
+    });
   };
 
   const rejectFriendRequest = async (requestId) => {
-    await api.post("/friends/reject", { requestId });
-    await refreshAppData();
+    await runAction(async () => {
+      await api.post("/friends/reject", { requestId });
+      await refreshAppData();
+    }, {
+      successTitle: "Request rejected",
+      successMessage: "The friend request was removed.",
+      errorTitle: "Reject failed",
+      errorMessage: "We could not reject that friend request.",
+    });
   };
 
   const addExpense = async (payload) => {
-    await api.post("/expense/add", payload);
-    await refreshAppData();
+    await runAction(async () => {
+      await api.post("/expense/add", payload);
+      await refreshAppData();
+    }, {
+      successTitle: "Expense added",
+      successMessage: payload.isShared ? "Shared expense saved and balances updated." : "Your expense was saved successfully.",
+      errorTitle: "Expense add failed",
+      errorMessage: "We could not save that expense.",
+    });
   };
 
   const updateExpense = async (id, payload) => {
-    await api.put(`/expense/personal/${id}`, payload);
-    await refreshAppData();
+    await runAction(async () => {
+      await api.put(`/expense/personal/${id}`, payload);
+      await refreshAppData();
+    }, {
+      successTitle: "Expense updated",
+      successMessage: "Your expense changes were saved.",
+      errorTitle: "Expense update failed",
+      errorMessage: "We could not update that expense.",
+    });
   };
 
   const deleteExpense = async (id) => {
-    await api.delete(`/expense/personal/${id}`);
-    await refreshAppData();
+    await runAction(async () => {
+      await api.delete(`/expense/personal/${id}`);
+      await refreshAppData();
+    }, {
+      successTitle: "Expense deleted",
+      successMessage: "The expense was removed from your records.",
+      errorTitle: "Expense delete failed",
+      errorMessage: "We could not delete that expense.",
+    });
   };
 
   const saveBudget = async ({ catId, amount, isUpdate }) => {
-    if (isUpdate) {
-      await api.put("/budget/update", { catId, amount });
-    } else {
-      await api.post("/budget/add", { catId, amount });
-    }
-    await refreshAppData();
+    await runAction(async () => {
+      if (isUpdate) {
+        await api.put("/budget/update", { catId, amount });
+      } else {
+        await api.post("/budget/add", { catId, amount });
+      }
+      await refreshAppData();
+    }, {
+      successTitle: isUpdate ? "Budget updated" : "Budget added",
+      successMessage: "Category budget and warning progress have been refreshed.",
+      errorTitle: "Budget save failed",
+      errorMessage: "We could not save that budget.",
+    });
   };
 
   const addRepayment = async ({ sharedExpenseId, amount, note }) => {
-    await api.post("/repayment/add", {
-      sharedExpenseId,
-      amount,
-      date: getLocalDateString(),
-      note,
+    await runAction(async () => {
+      await api.post("/repayment/add", {
+        sharedExpenseId,
+        amount,
+        date: getLocalDateString(),
+        note,
+      });
+    }, {
+      successTitle: "Repayment recorded",
+      successMessage: "The shared expense balance has been updated.",
+      errorTitle: "Repayment failed",
+      errorMessage: "We could not record that repayment.",
     });
-    await refreshAppData();
+  };
+
+  const exportCsv = async () => {
+    await runAction(async () => {
+      const response = await api.get("/export/csv", {
+        responseType: "blob",
+      });
+
+      const blobUrl = window.URL.createObjectURL(new Blob([response.data], { type: "text/csv;charset=utf-8;" }));
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = "expense-export.csv";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(blobUrl);
+    }, {
+      successTitle: "CSV export ready",
+      successMessage: "Your expense and settlement data has been downloaded.",
+      errorTitle: "CSV export failed",
+      errorMessage: "We could not export your CSV file.",
+    });
   };
 
   const value = useMemo(
@@ -209,13 +387,20 @@ export function AppProvider({ children }) {
       deleteExpense,
       saveBudget,
       addRepayment,
+      exportCsv,
       avatar: buildAvatar(state.user?.fullname || state.user?.username || ""),
       getLocalDateString,
+      showToast,
     }),
     [state, token, isBootstrapping, isLoading]
   );
 
-  return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
+  return (
+    <AppContext.Provider value={value}>
+      {children}
+      <ToastViewport toasts={toasts} onDismiss={dismissToast} />
+    </AppContext.Provider>
+  );
 }
 
 export function useApp() {

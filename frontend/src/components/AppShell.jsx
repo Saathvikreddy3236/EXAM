@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useApp } from '../AppContext';
+import { formatCurrency } from '../lib/currency';
 
 const navItems = [
   { to: '/dashboard', label: 'Overview', icon: LayoutDashboard, exact: true },
@@ -31,7 +32,7 @@ const navItems = [
 
 function NavLinks({ onNavigate, mobile = false }) {
   return (
-    <nav className={mobile ? 'grid gap-2' : 'hidden items-center gap-2 xl:flex'}>
+    <nav className={mobile ? 'grid gap-2' : 'hidden items-center gap-2 2xl:flex'}>
       {navItems.map(({ to, label, icon: Icon, exact }) => (
         <NavLink
           key={to}
@@ -63,12 +64,12 @@ function MobileMenu({ onNavigate }) {
 
   const quickStats = useMemo(
     () => [
-      { label: 'Total Expenses', value: `$${Number(dashboard?.total_expenses || 0).toFixed(2)}` },
-      { label: 'Amount to Pay', value: `$${Number(dashboard?.you_owe || 0).toFixed(2)}` },
-      { label: 'Amount to Receive', value: `$${Number(dashboard?.you_are_owed || 0).toFixed(2)}` },
+      { label: 'Total Expenses', value: formatCurrency(dashboard?.total_expenses || 0, user?.currency_preferred || dashboard?.currency_code || 'USD') },
+      { label: 'Amount to Pay', value: formatCurrency(dashboard?.you_owe || 0, user?.currency_preferred || dashboard?.currency_code || 'USD') },
+      { label: 'Amount to Receive', value: formatCurrency(dashboard?.you_are_owed || 0, user?.currency_preferred || dashboard?.currency_code || 'USD') },
       { label: 'Friends', value: `${friends.length}` },
     ],
-    [dashboard?.total_expenses, dashboard?.you_are_owed, dashboard?.you_owe, friends.length]
+    [dashboard?.currency_code, dashboard?.total_expenses, dashboard?.you_are_owed, dashboard?.you_owe, friends.length, user?.currency_preferred]
   );
 
   const handleLogout = () => {
@@ -158,12 +159,12 @@ export default function AppShell() {
 
   const quickStats = useMemo(
     () => [
-      { label: 'Total', value: `$${Number(dashboard?.total_expenses || 0).toFixed(2)}` },
-      { label: 'Pay', value: `$${Number(dashboard?.you_owe || 0).toFixed(2)}` },
-      { label: 'Receive', value: `$${Number(dashboard?.you_are_owed || 0).toFixed(2)}` },
+      { label: 'Total', value: formatCurrency(dashboard?.total_expenses || 0, user?.currency_preferred || dashboard?.currency_code || 'USD') },
+      { label: 'Pay', value: formatCurrency(dashboard?.you_owe || 0, user?.currency_preferred || dashboard?.currency_code || 'USD') },
+      { label: 'Receive', value: formatCurrency(dashboard?.you_are_owed || 0, user?.currency_preferred || dashboard?.currency_code || 'USD') },
       { label: 'Friends', value: `${friends.length}` },
     ],
-    [dashboard?.total_expenses, dashboard?.you_owe, dashboard?.you_are_owed, friends.length]
+    [dashboard?.currency_code, dashboard?.total_expenses, dashboard?.you_owe, dashboard?.you_are_owed, friends.length, user?.currency_preferred]
   );
 
   const handleLogout = () => {
@@ -176,11 +177,11 @@ export default function AppShell() {
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(251,191,36,0.16),_transparent_28%),radial-gradient(circle_at_85%_15%,_rgba(56,189,248,0.15),_transparent_24%),linear-gradient(180deg,_#020617_0%,_#0f172a_100%)]" />
 
       <div className="relative min-h-screen">
-        {open ? <div className="fixed inset-0 z-40 bg-slate-950/70 xl:hidden" onClick={() => setOpen(false)} /> : null}
+        {open ? <div className="fixed inset-0 z-40 bg-slate-950/70 2xl:hidden" onClick={() => setOpen(false)} /> : null}
 
         <aside
           className={[
-            'fixed inset-y-0 left-0 z-50 h-screen w-80 overflow-hidden border-r border-white/10 bg-slate-950/95 backdrop-blur transition-transform duration-300 xl:hidden',
+            'fixed inset-y-0 left-0 z-50 h-screen w-80 overflow-hidden border-r border-white/10 bg-slate-950/95 backdrop-blur transition-transform duration-300 2xl:hidden',
             open ? 'translate-x-0' : '-translate-x-full',
           ].join(' ')}
         >
@@ -196,14 +197,14 @@ export default function AppShell() {
           <MobileMenu onNavigate={() => setOpen(false)} />
         </aside>
 
-        <div className="relative flex min-h-screen flex-col">
+        <div className="relative flex min-h-screen min-w-0 flex-col overflow-x-hidden">
           <header className="sticky top-0 z-30 border-b border-white/10 bg-slate-950/75 backdrop-blur">
             <div className="px-4 py-4 sm:px-6 lg:px-8">
-              <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+              <div className="flex flex-col gap-4 2xl:flex-row 2xl:items-center 2xl:justify-between">
                 <div className="flex items-center gap-3">
                   <button
                     type="button"
-                    className="rounded-2xl border border-white/10 bg-white/5 p-2 text-slate-200 transition hover:bg-white/10 xl:hidden"
+                    className="rounded-2xl border border-white/10 bg-white/5 p-2 text-slate-200 transition hover:bg-white/10 2xl:hidden"
                     onClick={() => setOpen(true)}
                   >
                     <Menu className="h-5 w-5" />
@@ -219,8 +220,8 @@ export default function AppShell() {
 
                 <NavLinks />
 
-                <div className="flex items-center gap-3 self-end xl:self-auto">
-                  <div className="hidden items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2 lg:flex">
+                <div className="flex items-center gap-3 self-end 2xl:self-auto">
+                  <div className="hidden items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2 2xl:flex">
                     {quickStats.map((item) => (
                       <div key={item.label} className="rounded-full bg-white/5 px-3 py-1.5 text-xs text-slate-300">
                         <span className="mr-2 text-slate-400">{item.label}</span>
@@ -252,7 +253,7 @@ export default function AppShell() {
             </div>
           </header>
 
-          <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8">
+          <main className="min-w-0 flex-1 overflow-x-hidden px-4 py-6 sm:px-6 lg:px-8">
             <Outlet />
           </main>
         </div>

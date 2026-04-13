@@ -3,6 +3,8 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import pg from "pg";
 import { fileURLToPath } from "node:url";
+import { getBaseCurrency } from "./utils/currency.js";
+import { hashPassword } from "./utils/password.js";
 
 dotenv.config();
 
@@ -81,6 +83,13 @@ const categorySeeds = [
 ];
 
 const paymentModeSeeds = ["Cash", "UPI", "Credit Card", "Debit Card", "Net Banking"];
+const demoUserSeed = {
+  username: "demoUser",
+  email: "demo@testing.com",
+  fullname: "Demo User",
+  currency_preferred: "USD",
+  password: "Demo@123",
+};
 
 export async function initDatabase() {
   const schemaPath = path.join(__dirname, "database", "schema.sql");
@@ -88,6 +97,20 @@ export async function initDatabase() {
 
   await query(schemaSql);
   await query('ALTER TABLE "PAYMENT" ADD COLUMN IF NOT EXISTS note VARCHAR(200)');
+  await query(`ALTER TABLE "PAYMENT" ADD COLUMN IF NOT EXISTS currency_code VARCHAR(12) NOT NULL DEFAULT '${getBaseCurrency()}'`);
+  await query('ALTER TABLE "PAYMENT" ADD COLUMN IF NOT EXISTS amount_base NUMERIC(12, 2)');
+  await query(`UPDATE "PAYMENT" SET currency_code = COALESCE(currency_code, '${getBaseCurrency()}') WHERE currency_code IS NULL`);
+  await query('UPDATE "PAYMENT" SET amount_base = COALESCE(amount_base, amount) WHERE amount_base IS NULL');
+
+  await query('ALTER TABLE "SHARED_EXPENSE" ADD COLUMN IF NOT EXISTS amount_owed_base NUMERIC(12, 2)');
+  await query('ALTER TABLE "SHARED_EXPENSE" ADD COLUMN IF NOT EXISTS amount_repaid_base NUMERIC(12, 2) NOT NULL DEFAULT 0');
+  await query('UPDATE "SHARED_EXPENSE" SET amount_owed_base = COALESCE(amount_owed_base, amount_owed) WHERE amount_owed_base IS NULL');
+  await query('UPDATE "SHARED_EXPENSE" SET amount_repaid_base = COALESCE(amount_repaid_base, amount_repaid) WHERE amount_repaid_base IS NULL');
+
+  await query(`ALTER TABLE "REPAYMENTS" ADD COLUMN IF NOT EXISTS currency_code VARCHAR(12) NOT NULL DEFAULT '${getBaseCurrency()}'`);
+  await query('ALTER TABLE "REPAYMENTS" ADD COLUMN IF NOT EXISTS amount_base NUMERIC(12, 2)');
+  await query(`UPDATE "REPAYMENTS" SET currency_code = COALESCE(currency_code, '${getBaseCurrency()}') WHERE currency_code IS NULL`);
+  await query('UPDATE "REPAYMENTS" SET amount_base = COALESCE(amount_base, amount) WHERE amount_base IS NULL');
 
   for (const category of categorySeeds) {
     await query(
@@ -102,6 +125,25 @@ export async function initDatabase() {
       [mode]
     );
   }
+
+  const demoPasswordHash = hashPassword(demoUserSeed.password);
+  await query(
+    `INSERT INTO "USER" (username, email, fullname, currency_preferred, password_hash)
+     VALUES ($1, $2, $3, $4, $5)
+     ON CONFLICT (username)
+     DO UPDATE SET
+       email = EXCLUDED.email,
+       fullname = EXCLUDED.fullname,
+       currency_preferred = EXCLUDED.currency_preferred,
+       password_hash = EXCLUDED.password_hash`,
+    [
+      demoUserSeed.username,
+      demoUserSeed.email,
+      demoUserSeed.fullname,
+      demoUserSeed.currency_preferred,
+      demoPasswordHash,
+    ]
+  );
 }
 
 export async function verifyDatabaseConnection() {

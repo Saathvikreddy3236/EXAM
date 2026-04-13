@@ -10,6 +10,11 @@ export async function findUserByEmail(email) {
   return result.rows[0] || null;
 }
 
+export async function getUserCurrency(username) {
+  const result = await query('SELECT currency_preferred FROM "USER" WHERE username = $1', [username]);
+  return result.rows[0]?.currency_preferred || "USD";
+}
+
 export async function createUser({
   username,
   email,

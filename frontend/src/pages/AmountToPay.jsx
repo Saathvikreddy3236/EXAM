@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { CreditCard, TimerReset } from 'lucide-react';
 import { useApp } from '../AppContext';
 import { Panel, Pill, SectionHeader } from '../components/UI';
+import { formatCurrency } from '../lib/currency';
 
 function buildDraft(amount) {
   return {
@@ -75,7 +76,7 @@ export default function AmountToPay() {
               <div className="mb-5 flex items-center justify-between">
                 <div>
                   <p className="text-sm text-slate-400">Pending amount</p>
-                  <p className="mt-1 text-3xl font-semibold text-white">${remaining.toFixed(2)}</p>
+                  <p className="mt-1 text-3xl font-semibold text-white">{formatCurrency(remaining, debt.currency_code)}</p>
                 </div>
                 <Pill tone={debt.status === 'completed' ? 'green' : 'yellow'}>{debt.status}</Pill>
               </div>
@@ -99,7 +100,7 @@ export default function AmountToPay() {
                       placeholder="0.00"
                     />
                     {!isAmountValid ? (
-                      <p className="mt-2 text-xs text-rose-200">Enter an amount greater than 0 and no more than ${remaining.toFixed(2)}.</p>
+                      <p className="mt-2 text-xs text-rose-200">Enter an amount greater than 0 and no more than {formatCurrency(remaining, debt.currency_code)}.</p>
                     ) : null}
                   </div>
 

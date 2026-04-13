@@ -1,5 +1,6 @@
 import { ApiError } from "../utils/http.js";
 import { findUserByEmail, findUserByUsername, updateUserProfile } from "../models/userModel.js";
+import { isSupportedCurrency } from "../utils/currency.js";
 
 export async function getProfile(req, res) {
   const user = await findUserByUsername(req.user.username);
@@ -21,6 +22,10 @@ export async function updateProfile(req, res) {
 
   if (!email || !fullname || !currencyPreferred) {
     throw new ApiError(400, "email, fullname, and currencyPreferred are required.");
+  }
+
+  if (!isSupportedCurrency(currencyPreferred)) {
+    throw new ApiError(400, "Currency preference must be one of INR, USD, EUR, or GBP.");
   }
 
   const existingEmail = await findUserByEmail(email);

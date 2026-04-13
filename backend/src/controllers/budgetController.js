@@ -1,5 +1,7 @@
 import { ApiError } from "../utils/http.js";
 import { getBudgetsWithSpend, upsertBudget } from "../models/budgetModel.js";
+import { getUserCurrency } from "../models/userModel.js";
+import { convertFilterAmountsToBase, normalizeExpenseFilters } from "../utils/queryFilters.js";
 
 export async function addBudget(req, res) {
   const { catId, amount } = req.body;
@@ -18,7 +20,8 @@ export async function addBudget(req, res) {
 }
 
 export async function getAllBudgets(req, res) {
-  res.json(await getBudgetsWithSpend(req.user.username));
+  const filters = convertFilterAmountsToBase(normalizeExpenseFilters(req.query), await getUserCurrency(req.user.username));
+  res.json(await getBudgetsWithSpend(req.user.username, filters));
 }
 
 export async function updateBudget(req, res) {

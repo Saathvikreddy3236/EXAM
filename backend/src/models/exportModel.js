@@ -1,12 +1,15 @@
 import { query } from "../db.js";
+import { fromBaseCurrency } from "../utils/currency.js";
+import { getUserCurrency } from "./userModel.js";
 
 export async function getExportRows(username) {
+  const currency = await getUserCurrency(username);
   const result = await query(
     `SELECT
         p.date AS date,
         p.title AS title,
         c.cat_name AS category,
-        p.amount AS amount,
+        p.amount_base AS amount_base,
         'Personal' AS type,
         e.username AS paid_by,
         ''::varchar AS owed_by,
@@ -22,7 +25,7 @@ export async function getExportRows(username) {
         p.date AS date,
         p.title AS title,
         c.cat_name AS category,
-        se.amount_owed AS amount,
+        se.amount_owed_base AS amount_base,
         'Shared' AS type,
         se.paid_username AS paid_by,
         se.owed_username AS owed_by,
@@ -38,7 +41,7 @@ export async function getExportRows(username) {
         r.date AS date,
         CONCAT(p.title, ' repayment') AS title,
         c.cat_name AS category,
-        r.amount AS amount,
+        r.amount_base AS amount_base,
         'Shared' AS type,
         se.owed_username AS paid_by,
         se.paid_username AS owed_by,
@@ -53,5 +56,9 @@ export async function getExportRows(username) {
     [username]
   );
 
-  return result.rows;
+  return result.rows.map((row) => ({
+    ...row,
+    amount: fromBaseCurrency(row.amount_base, currency),
+    currency_code: currency,
+  }));
 }

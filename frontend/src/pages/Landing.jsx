@@ -78,6 +78,13 @@ export default function Landing() {
                 </div>
               ))}
             </div>
+
+            <div className="rounded-[28px] border border-amber-300/20 bg-amber-300/10 p-5">
+              <p className="text-xs uppercase tracking-[0.24em] text-amber-100/80">Demo Access</p>
+              <p className="mt-3 text-sm text-slate-100">Email: <span className="font-semibold">demo@testing.com</span></p>
+              <p className="mt-1 text-sm text-slate-100">Password: <span className="font-semibold">Demo@123</span></p>
+              <p className="mt-3 text-sm text-slate-300">This demo account is seeded automatically by the backend during startup.</p>
+            </div>
           </section>
 
           <section className="animate-enter [animation-delay:220ms]">

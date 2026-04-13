@@ -1,6 +1,9 @@
 import { query } from "../db.js";
+import { fromBaseCurrency } from "../utils/currency.js";
+import { getUserCurrency } from "./userModel.js";
 
 export async function getAmountsOwed(username) {
+  const currency = await getUserCurrency(username);
   const result = await query(
     `SELECT
         se.id,
@@ -11,8 +14,10 @@ export async function getAmountsOwed(username) {
         se.paid_username,
         u.fullname AS paid_fullname,
         se.amount_owed,
+        se.amount_owed_base,
         se.amount_repaid,
-        ROUND((se.amount_owed - se.amount_repaid)::numeric, 2) AS amount_remaining,
+        se.amount_repaid_base,
+        ROUND((se.amount_owed_base - se.amount_repaid_base)::numeric, 2) AS amount_remaining_base,
         se.status
       FROM "SHARED_EXPENSE" se
       JOIN "PAYMENT" p ON p.id = se.payment_id
@@ -23,10 +28,17 @@ export async function getAmountsOwed(username) {
     [username]
   );
 
-  return result.rows;
+  return result.rows.map((row) => ({
+    ...row,
+    amount_owed: fromBaseCurrency(row.amount_owed_base ?? row.amount_owed, currency),
+    amount_repaid: fromBaseCurrency(row.amount_repaid_base ?? row.amount_repaid, currency),
+    amount_remaining: fromBaseCurrency(row.amount_remaining_base ?? 0, currency),
+    currency_code: currency,
+  }));
 }
 
 export async function getAmountsReceivable(username) {
+  const currency = await getUserCurrency(username);
   const result = await query(
     `SELECT
         se.id,
@@ -37,8 +49,10 @@ export async function getAmountsReceivable(username) {
         se.owed_username,
         u.fullname AS owed_fullname,
         se.amount_owed,
+        se.amount_owed_base,
         se.amount_repaid,
-        ROUND((se.amount_owed - se.amount_repaid)::numeric, 2) AS amount_remaining,
+        se.amount_repaid_base,
+        ROUND((se.amount_owed_base - se.amount_repaid_base)::numeric, 2) AS amount_remaining_base,
         se.status
       FROM "SHARED_EXPENSE" se
       JOIN "PAYMENT" p ON p.id = se.payment_id
@@ -49,5 +63,11 @@ export async function getAmountsReceivable(username) {
     [username]
   );
 
-  return result.rows;
+  return result.rows.map((row) => ({
+    ...row,
+    amount_owed: fromBaseCurrency(row.amount_owed_base ?? row.amount_owed, currency),
+    amount_repaid: fromBaseCurrency(row.amount_repaid_base ?? row.amount_repaid, currency),
+    amount_remaining: fromBaseCurrency(row.amount_remaining_base ?? 0, currency),
+    currency_code: currency,
+  }));
 }

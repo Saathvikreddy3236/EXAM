@@ -8,7 +8,8 @@ import {
   updatePersonalExpense,
 } from "../models/expenseModel.js";
 import { areFriends } from "../models/friendModel.js";
-import { findUserByUsername } from "../models/userModel.js";
+import { findUserByUsername, getUserCurrency } from "../models/userModel.js";
+import { convertFilterAmountsToBase, normalizeExpenseFilters, normalizeSortParams } from "../utils/queryFilters.js";
 
 function hasMoreThanTwoDecimals(value) {
   return !Number.isInteger(Number(value) * 100);
@@ -147,15 +148,20 @@ export async function addExpense(req, res) {
 }
 
 export async function listPersonalExpenses(req, res) {
-  res.json(await getPersonalExpenses(req.user.username, req.query));
+  const filters = convertFilterAmountsToBase(normalizeExpenseFilters(req.query), await getUserCurrency(req.user.username));
+  const sort = normalizeSortParams(req.query);
+  res.json(await getPersonalExpenses(req.user.username, filters, sort));
 }
 
 export async function listSharedExpenses(req, res) {
-  res.json(await getSharedExpenseLists(req.user.username));
+  const filters = convertFilterAmountsToBase(normalizeExpenseFilters(req.query), await getUserCurrency(req.user.username));
+  const sort = normalizeSortParams(req.query);
+  res.json(await getSharedExpenseLists(req.user.username, filters, sort));
 }
 
 export async function listRecentExpenses(req, res) {
-  res.json(await getRecentTransactions(req.user.username));
+  const filters = convertFilterAmountsToBase(normalizeExpenseFilters(req.query), await getUserCurrency(req.user.username));
+  res.json(await getRecentTransactions(req.user.username, filters));
 }
 
 export async function updateExpense(req, res) {

@@ -1,6 +1,7 @@
 import { HandCoins, Send } from 'lucide-react';
 import { useApp } from '../AppContext';
 import { Panel, Pill, SectionHeader } from '../components/UI';
+import { formatCurrency } from '../lib/currency';
 
 export default function AmountToReceive() {
   const { receivable } = useApp();
@@ -28,7 +29,7 @@ export default function AmountToReceive() {
 
             <div className="mb-5">
               <p className="text-sm text-slate-400">Pending amount</p>
-              <p className="mt-1 text-3xl font-semibold text-white">${Number(entry.amount_remaining).toFixed(2)}</p>
+              <p className="mt-1 text-3xl font-semibold text-white">{formatCurrency(entry.amount_remaining, entry.currency_code)}</p>
             </div>
 
             <div className="flex items-center justify-between gap-3">

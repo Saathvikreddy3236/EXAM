@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Panel, Pill, SectionHeader } from '../components/UI';
+import { EmptyState, ExpenseFiltersBar, Panel, Pill, SectionHeader } from '../components/UI';
 import { useApp } from '../AppContext';
+import { formatCurrency } from '../lib/currency';
 
 function buildDraft(amount) {
   return {
@@ -67,7 +68,7 @@ function SharedList({ title, description, items, onRepay }) {
                 <p className="mt-1 text-sm text-slate-400">{item.counterpart_fullname}</p>
               </div>
               <div className="text-left sm:text-right">
-                <p className="text-lg font-semibold text-white">${remaining.toFixed(2)}</p>
+                <p className="text-lg font-semibold text-white">{formatCurrency(remaining, item.currency_code)}</p>
                 <Pill tone={item.status === 'completed' ? 'green' : 'yellow'}>{item.status}</Pill>
                 {onRepay && item.status !== 'completed' ? (
                   <div className="mt-3 space-y-3 sm:ml-auto sm:max-w-xs">
@@ -90,7 +91,7 @@ function SharedList({ title, description, items, onRepay }) {
                       placeholder="Note (optional)"
                     />
                     {!isAmountValid ? (
-                      <p className="text-xs text-amber-100">Enter an amount greater than 0 and no more than ${remaining.toFixed(2)}.</p>
+                      <p className="text-xs text-amber-100">Enter an amount greater than 0 and no more than {formatCurrency(remaining, item.currency_code)}.</p>
                     ) : null}
                   </div>
                 ) : null}
@@ -117,14 +118,37 @@ function SharedList({ title, description, items, onRepay }) {
 }
 
 export default function SharedExpenses() {
-  const { sharedExpenses, addRepayment } = useApp();
+  const {
+    sharedExpenses,
+    addRepayment,
+    categories,
+    paymentModes,
+    expenseFilters,
+    setExpenseFilters,
+    resetExpenseFilters,
+    sharedSort,
+    setSharedSort,
+    getLocalDateString,
+    isLoading,
+  } = useApp();
 
   return (
     <div>
       <SectionHeader
         eyebrow="Shared Expenses"
         title="Track the shared expenses you paid and the ones you owe."
-        description="This page separates group expenses into payments you funded and balances where you are one of the participants."
+        description="Apply combined filters and sorting to the shared balances you funded and the ones you still owe."
+      />
+
+      <ExpenseFiltersBar
+        filters={expenseFilters}
+        onChange={setExpenseFilters}
+        onReset={resetExpenseFilters}
+        categories={categories}
+        paymentModes={paymentModes}
+        maxDate={getLocalDateString()}
+        sort={sharedSort}
+        onSortChange={setSharedSort}
       />
 
       <div className="grid gap-6 xl:grid-cols-2">
@@ -140,6 +164,15 @@ export default function SharedExpenses() {
           onRepay={(item, amount, note) => addRepayment({ sharedExpenseId: item.id, amount, note })}
         />
       </div>
+
+      {!isLoading && sharedExpenses.paidByYou.length === 0 && sharedExpenses.owedByYou.length === 0 ? (
+        <div className="mt-6">
+          <EmptyState
+            title="No results found"
+            description="Try adjusting your filters, search, or amount range to see matching shared expenses."
+          />
+        </div>
+      ) : null}
     </div>
   );
 }

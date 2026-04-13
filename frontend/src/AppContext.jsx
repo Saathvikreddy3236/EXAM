@@ -8,6 +8,7 @@ const TOKEN_KEY = "expense_tracker_token";
 const defaultState = {
   user: null,
   dashboard: null,
+  analytics: null,
   budgets: [],
   recentTransactions: [],
   friends: [],
@@ -19,6 +20,53 @@ const defaultState = {
   owed: [],
   receivable: [],
 };
+
+const defaultExpenseFilters = {
+  categoryIds: [],
+  modeIds: [],
+  startDate: "",
+  endDate: "",
+  minAmount: "",
+  maxAmount: "",
+  search: "",
+};
+
+const defaultSort = {
+  sortBy: "date",
+  sortOrder: "desc",
+};
+
+function buildFilterParams(filters, sort) {
+  const params = {};
+
+  if (filters.categoryIds?.length) {
+    params.categoryIds = filters.categoryIds.join(",");
+  }
+  if (filters.modeIds?.length) {
+    params.modeIds = filters.modeIds.join(",");
+  }
+  if (filters.startDate) {
+    params.startDate = filters.startDate;
+  }
+  if (filters.endDate) {
+    params.endDate = filters.endDate;
+  }
+  if (filters.minAmount !== "") {
+    params.minAmount = filters.minAmount;
+  }
+  if (filters.maxAmount !== "") {
+    params.maxAmount = filters.maxAmount;
+  }
+  if (filters.search) {
+    params.search = filters.search;
+  }
+  if (sort?.sortBy) {
+    params.sortBy = sort.sortBy;
+    params.sortOrder = sort.sortOrder;
+  }
+
+  return params;
+}
 
 const AppContext = createContext(null);
 
@@ -47,6 +95,9 @@ export function AppProvider({ children }) {
   const [isLoading, setIsLoading] = useState(false);
   const [toasts, setToasts] = useState([]);
   const socketRef = useRef(null);
+  const [expenseFilters, setExpenseFilters] = useState(defaultExpenseFilters);
+  const [personalSort, setPersonalSort] = useState(defaultSort);
+  const [sharedSort, setSharedSort] = useState(defaultSort);
 
   const dismissToast = (toastId) => {
     setToasts((current) => current.filter((toast) => toast.id !== toastId));
@@ -105,12 +156,17 @@ export function AppProvider({ children }) {
       return;
     }
 
+    const filterParams = buildFilterParams(expenseFilters);
+    const personalParams = buildFilterParams(expenseFilters, personalSort);
+    const sharedParams = buildFilterParams(expenseFilters, sharedSort);
+
     setIsLoading(true);
 
     try {
       const [
         profileRes,
         dashboardRes,
+        analyticsRes,
         recentRes,
         budgetsRes,
         friendsRes,
@@ -123,15 +179,16 @@ export function AppProvider({ children }) {
         receivableRes,
       ] = await Promise.all([
         api.get("/user/profile"),
-        api.get("/meta/dashboard"),
-        api.get("/expense/recent"),
-        api.get("/budget/all"),
+        api.get("/meta/dashboard", { params: filterParams }),
+        api.get("/meta/analytics", { params: filterParams }),
+        api.get("/expense/recent", { params: filterParams }),
+        api.get("/budget/all", { params: filterParams }),
         api.get("/friends/list"),
         api.get("/friends/requests"),
         api.get("/meta/categories"),
         api.get("/meta/payment-modes"),
-        api.get("/expense/personal"),
-        api.get("/expense/shared"),
+        api.get("/expense/personal", { params: personalParams }),
+        api.get("/expense/shared", { params: sharedParams }),
         api.get("/shared-expense/owed"),
         api.get("/shared-expense/receivable"),
       ]);
@@ -139,6 +196,7 @@ export function AppProvider({ children }) {
       setState({
         user: profileRes.data,
         dashboard: dashboardRes.data,
+        analytics: analyticsRes.data,
         budgets: budgetsRes.data,
         recentTransactions: recentRes.data,
         friends: friendsRes.data,
@@ -170,7 +228,7 @@ export function AppProvider({ children }) {
       logout({ silent: true });
       setIsBootstrapping(false);
     });
-  }, [token]);
+  }, [token, expenseFilters, personalSort, sharedSort]);
 
   useEffect(() => {
     if (!token) {
@@ -183,14 +241,7 @@ export function AppProvider({ children }) {
     });
 
     socket.on("repayment:updated", (payload) => {
-      setState((current) => ({
-        ...current,
-        dashboard: payload.dashboard,
-        sharedExpenses: payload.sharedExpenses,
-        recentTransactions: payload.recentTransactions,
-        owed: payload.owed,
-        receivable: payload.receivable,
-      }));
+      refreshAppData().catch(() => {});
     });
 
     socketRef.current = socket;
@@ -388,11 +439,18 @@ export function AppProvider({ children }) {
       saveBudget,
       addRepayment,
       exportCsv,
+      expenseFilters,
+      setExpenseFilters,
+      resetExpenseFilters: () => setExpenseFilters(defaultExpenseFilters),
+      personalSort,
+      setPersonalSort,
+      sharedSort,
+      setSharedSort,
       avatar: buildAvatar(state.user?.fullname || state.user?.username || ""),
       getLocalDateString,
       showToast,
     }),
-    [state, token, isBootstrapping, isLoading]
+    [state, token, isBootstrapping, isLoading, expenseFilters, personalSort, sharedSort]
   );
 
   return (

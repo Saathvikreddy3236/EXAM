@@ -3,9 +3,10 @@ import { useMemo, useState } from 'react';
 import { useApp } from '../AppContext';
 import { Panel, Pill, SectionHeader } from '../components/UI';
 import { getBudgetSignal } from '../lib/budget';
+import { formatCurrency } from '../lib/currency';
 
 export default function Budget() {
-  const { budgets, categories, saveBudget } = useApp();
+  const { budgets, categories, saveBudget, user } = useApp();
   const [form, setForm] = useState({ catId: '', amount: '' });
 
   const budgetedCategoryIds = useMemo(
@@ -71,6 +72,7 @@ export default function Budget() {
           const budget = Number(item.budget_amount);
           const status = getBudgetSignal(spent, budget);
           const delta = budget - spent;
+          const currency = item.currency_code || user?.currency_preferred || 'USD';
 
           return (
             <Panel key={item.cat_id}>
@@ -84,7 +86,7 @@ export default function Budget() {
 
               <div className="mb-3 flex items-center justify-between text-sm">
                 <span className="text-slate-400">Budget vs spent</span>
-                <span className="font-medium text-white">${spent.toFixed(2)} / ${budget.toFixed(2)}</span>
+                <span className="font-medium text-white">{formatCurrency(spent, currency)} / {formatCurrency(budget, currency)}</span>
               </div>
 
               <div className="h-3 rounded-full bg-white/10">
@@ -98,7 +100,7 @@ export default function Budget() {
                 </div>
                 <div className="rounded-2xl bg-white/5 p-3">
                   <p className="text-xs uppercase tracking-[0.22em] text-slate-500">Remaining</p>
-                  <p className="mt-2 text-lg font-semibold text-white">${Math.max(delta, 0)}</p>
+                  <p className="mt-2 text-lg font-semibold text-white">{formatCurrency(Math.max(delta, 0), currency)}</p>
                 </div>
                 <div className="rounded-2xl bg-white/5 p-3">
                   <p className="text-xs uppercase tracking-[0.22em] text-slate-500">Signal</p>

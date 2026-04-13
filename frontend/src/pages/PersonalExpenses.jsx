@@ -1,30 +1,29 @@
 import { Download, PencilLine, Trash2 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useApp } from '../AppContext';
-import { Panel, SectionHeader } from '../components/UI';
+import { EmptyState, ExpenseFiltersBar, Panel, SectionHeader } from '../components/UI';
+import { formatCurrency } from '../lib/currency';
 
 const initialFormWithNote = { title: '', amount: '', catId: '', date: '', modeId: '', note: '' };
 
 export default function PersonalExpenses() {
-  const { personalExpenses, categories, paymentModes, updateExpense, deleteExpense, exportCsv } = useApp();
+  const {
+    personalExpenses,
+    categories,
+    paymentModes,
+    updateExpense,
+    deleteExpense,
+    exportCsv,
+    expenseFilters,
+    setExpenseFilters,
+    resetExpenseFilters,
+    personalSort,
+    setPersonalSort,
+    getLocalDateString,
+    isLoading,
+  } = useApp();
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(initialFormWithNote);
-  const [filters, setFilters] = useState({ search: '', category: '' });
-
-  const filteredExpenses = useMemo(
-    () =>
-      personalExpenses.filter((expense) => {
-        const matchesSearch = filters.search
-          ? expense.title.toLowerCase().includes(filters.search.toLowerCase())
-          : true;
-        const matchesCategory = filters.category
-          ? String(expense.cat_id) === filters.category
-          : true;
-
-        return matchesSearch && matchesCategory;
-      }),
-    [personalExpenses, filters]
-  );
 
   const startEdit = (expense) => {
     setEditing(expense.id);
@@ -57,32 +56,23 @@ export default function PersonalExpenses() {
       <SectionHeader
         eyebrow="Personal Expenses"
         title="Filter, edit, and remove your personal expense records."
-        description="This table is backed by the personal expense APIs, so edits and deletes are persisted through the backend."
-        action={
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <input
-              value={filters.search}
-              onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))}
-              placeholder="Search title"
-              className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none"
-            />
-            <select
-              value={filters.category}
-              onChange={(event) => setFilters((current) => ({ ...current, category: event.target.value }))}
-              className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none"
-            >
-              <option value="">All categories</option>
-              {categories.map((category) => (
-                <option key={category.cat_id} value={category.cat_id}>
-                  {category.cat_name}
-                </option>
-              ))}
-            </select>
-            <button type="button" onClick={exportCsv} className="primary-button">
-              <Download className="h-4 w-4" />
-              Export to CSV
-            </button>
-          </div>
+        description="Use combined filters and sorting to explore your real personal expense history."
+      />
+
+      <ExpenseFiltersBar
+        filters={expenseFilters}
+        onChange={setExpenseFilters}
+        onReset={resetExpenseFilters}
+        categories={categories}
+        paymentModes={paymentModes}
+        maxDate={getLocalDateString()}
+        sort={personalSort}
+        onSortChange={setPersonalSort}
+        extraAction={
+          <button type="button" onClick={exportCsv} className="primary-button">
+            <Download className="h-4 w-4" />
+            Export to CSV
+          </button>
         }
       />
 
@@ -106,8 +96,10 @@ export default function PersonalExpenses() {
       ) : null}
 
       <Panel>
+        {isLoading ? <p className="text-sm text-slate-400">Loading filtered expenses...</p> : null}
+
         <div className="space-y-3">
-          {filteredExpenses.map((expense) => (
+          {personalExpenses.map((expense) => (
             <div key={expense.id} className="flex flex-col gap-4 rounded-3xl border border-white/10 bg-white/5 p-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <p className="font-medium text-white">{expense.title}</p>
@@ -116,7 +108,7 @@ export default function PersonalExpenses() {
                 {expense.note ? <p className="mt-1 text-sm text-slate-400">{expense.note}</p> : null}
               </div>
               <div className="flex items-center gap-3">
-                <span className="text-lg font-semibold text-white">${Number(expense.amount).toFixed(2)}</span>
+                <span className="text-lg font-semibold text-white">{formatCurrency(expense.amount, expense.currency_code)}</span>
                 <button type="button" onClick={() => startEdit(expense)} className="rounded-2xl border border-white/10 bg-white/5 p-3 text-white transition hover:bg-white/10">
                   <PencilLine className="h-4 w-4" />
                 </button>
@@ -127,8 +119,11 @@ export default function PersonalExpenses() {
             </div>
           ))}
 
-          {filteredExpenses.length === 0 ? (
-            <p className="text-sm text-slate-400">No personal expenses matched your current filters.</p>
+          {personalExpenses.length === 0 && !isLoading ? (
+            <EmptyState
+              title="No results found"
+              description="Try adjusting your filters, search, or sorting to see more personal expenses."
+            />
           ) : null}
         </div>
       </Panel>
